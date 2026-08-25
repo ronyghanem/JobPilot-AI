@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "JobPilot AI",
+  "version": "1.0.0",
+  "description": "AI-powered job application assistant.",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "http://localhost:5173/*",
+    "http://localhost:3001/*"
+  ],
+
+  "action": {
+    "default_title": "JobPilot AI",
+    "default_popup": "popup.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:5173/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
