@@ -427,7 +427,7 @@ async function generateAIAnswer(
     );
 
     const response = await fetch(
-      "http://localhost:3001/api/generate-answer",
+      "https://job-pilot-ai-silk.vercel.app/api/generate-answer",
       {
         method: "POST",
 

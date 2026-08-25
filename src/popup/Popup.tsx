@@ -250,7 +250,7 @@ const extractPDFText = async (
 
       const response =
         await fetch(
-          "http://localhost:3001/api/analyze-cv",
+          "https://job-pilot-ai-silk.vercel.app/api/analyze-cv",
           {
             method: "POST",
 
