@@ -41,11 +41,16 @@ function normalize(text: string): string {
 function getElementIdentifier(
   element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 ): string {
+  const placeholder =
+    "placeholder" in element
+      ? element.placeholder
+      : "";
+
   return normalize(
     [
       element.name,
       element.id,
-      element.placeholder,
+      placeholder,
       element.getAttribute("aria-label"),
       element.getAttribute("autocomplete"),
     ]
