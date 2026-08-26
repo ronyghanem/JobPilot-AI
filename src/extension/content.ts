@@ -94,7 +94,10 @@ function getLabelText(
 ========================================================= */
 
 function detectFieldType(
-  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  element:
+    | HTMLInputElement
+    | HTMLTextAreaElement
+    | HTMLSelectElement
 ): {
   type: string;
   score: number;
@@ -102,17 +105,23 @@ function detectFieldType(
   const identifier = getElementIdentifier(element);
   const label = getLabelText(element);
 
-  const text = `${identifier} ${label}`;
+  const autocomplete =
+    element.getAttribute("autocomplete") || "";
 
-  const type = element instanceof HTMLInputElement
-    ? normalize(element.type)
-    : "";
+  const text = normalize(
+    `${identifier} ${label} ${autocomplete}`
+  );
+
+  const inputType =
+    element instanceof HTMLInputElement
+      ? normalize(element.type)
+      : "";
 
   /* EMAIL */
-
   if (
-    type === "email" ||
-    /\bemail\b|\be mail\b/.test(text)
+    inputType === "email" ||
+    /\bemail\b|\be-mail\b|\bmail address\b/.test(text) ||
+    autocomplete === "email"
   ) {
     return {
       type: "email",
@@ -121,10 +130,13 @@ function detectFieldType(
   }
 
   /* PHONE */
-
   if (
-    type === "tel" ||
-    /\bphone\b|\bmobile\b|\btelephone\b|\bcontact number\b/.test(text)
+    inputType === "tel" ||
+    /\bphone\b|\bmobile\b|\btelephone\b|\bcontact number\b|\bphone number\b|\bcell\b/.test(
+      text
+    ) ||
+    autocomplete === "tel" ||
+    autocomplete === "tel-national"
   ) {
     return {
       type: "phone",
@@ -133,9 +145,11 @@ function detectFieldType(
   }
 
   /* FIRST NAME */
-
   if (
-    /\bfirst name\b|\bfirstname\b|\bgiven name\b/.test(text)
+    /\bfirst name\b|\bfirstname\b|\bgiven name\b|\bforename\b/.test(
+      text
+    ) ||
+    autocomplete === "given-name"
   ) {
     return {
       type: "firstName",
@@ -144,9 +158,11 @@ function detectFieldType(
   }
 
   /* LAST NAME */
-
   if (
-    /\blast name\b|\blastname\b|\bsurname\b|\bfamily name\b/.test(text)
+    /\blast name\b|\blastname\b|\bsurname\b|\bfamily name\b/.test(
+      text
+    ) ||
+    autocomplete === "family-name"
   ) {
     return {
       type: "lastName",
@@ -155,20 +171,23 @@ function detectFieldType(
   }
 
   /* FULL NAME */
-
   if (
-    /\bfull name\b|\bfullname\b|\byour name\b/.test(text)
+    /\bfull name\b|\bfullname\b|\byour name\b|\bname\b/.test(
+      text
+    ) ||
+    autocomplete === "name"
   ) {
     return {
       type: "fullName",
-      score: 100,
+      score: 90,
     };
   }
 
   /* LINKEDIN */
-
   if (
-    /\blinkedin\b/.test(text)
+    /\blinkedin\b|\blinkedin profile\b|\blinkedin url\b/.test(
+      text
+    )
   ) {
     return {
       type: "linkedin",
@@ -177,9 +196,10 @@ function detectFieldType(
   }
 
   /* GITHUB */
-
   if (
-    /\bgithub\b/.test(text)
+    /\bgithub\b|\bgithub profile\b|\bgithub url\b/.test(
+      text
+    )
   ) {
     return {
       type: "github",
@@ -188,9 +208,10 @@ function detectFieldType(
   }
 
   /* PORTFOLIO */
-
   if (
-    /\bportfolio\b|\bpersonal website\b|\bpersonal site\b/.test(text)
+    /\bportfolio\b|\bportfolio url\b|\bpersonal website\b|\bpersonal site\b/.test(
+      text
+    )
   ) {
     return {
       type: "portfolio",
@@ -199,9 +220,10 @@ function detectFieldType(
   }
 
   /* WEBSITE */
-
   if (
-    /\bwebsite\b|\bweb site\b/.test(text)
+    /\bwebsite\b|\bweb site\b|\bpersonal url\b/.test(
+      text
+    )
   ) {
     return {
       type: "website",
@@ -210,9 +232,11 @@ function detectFieldType(
   }
 
   /* CITY */
-
   if (
-    /\bcity\b|\btown\b/.test(text)
+    /\bcity\b|\btown\b|\bcurrent city\b|\blocation city\b/.test(
+      text
+    ) ||
+    autocomplete === "address-level2"
   ) {
     return {
       type: "city",
@@ -221,9 +245,9 @@ function detectFieldType(
   }
 
   /* COUNTRY */
-
   if (
-    /\bcountry\b|\bnationality\b/.test(text)
+    /\bcountry\b|\bcountry of residence\b/.test(text) ||
+    autocomplete === "country"
   ) {
     return {
       type: "country",
@@ -232,9 +256,11 @@ function detectFieldType(
   }
 
   /* ADDRESS */
-
   if (
-    /\baddress\b|\bstreet address\b|\bhome address\b/.test(text)
+    /\baddress\b|\bstreet address\b|\bhome address\b|\bmailing address\b/.test(
+      text
+    ) ||
+    autocomplete === "street-address"
   ) {
     return {
       type: "address",
@@ -243,9 +269,10 @@ function detectFieldType(
   }
 
   /* EDUCATION */
-
   if (
-    /\beducation\b|\bdegree\b|\buniversity\b|\bcollege\b/.test(text)
+    /\beducation\b|\bdegree\b|\buniversity\b|\bcollege\b|\bschool\b|\bacademic\b|\bqualification\b/.test(
+      text
+    )
   ) {
     return {
       type: "education",
@@ -254,9 +281,10 @@ function detectFieldType(
   }
 
   /* EXPERIENCE */
-
   if (
-    /\bexperience\b|\bwork history\b|\bemployment history\b/.test(text)
+    /\bexperience\b|\bwork history\b|\bemployment history\b|\bwork experience\b|\bprofessional experience\b/.test(
+      text
+    )
   ) {
     return {
       type: "experience",
@@ -265,9 +293,10 @@ function detectFieldType(
   }
 
   /* SKILLS */
-
   if (
-    /\bskills\b|\btechnical skills\b|\btechnologies\b/.test(text)
+    /\bskills\b|\btechnical skills\b|\btechnologies\b|\bprogramming languages\b/.test(
+      text
+    )
   ) {
     return {
       type: "skills",
@@ -276,9 +305,8 @@ function detectFieldType(
   }
 
   /* SUMMARY */
-
   if (
-    /\bsummary\b|\babout you\b|\bprofessional summary\b|\bprofile\b/.test(
+    /\bsummary\b|\babout you\b|\bprofessional summary\b|\bprofile summary\b|\babout yourself\b/.test(
       text
     )
   ) {
@@ -302,7 +330,9 @@ function findFields(): DetectedField[] {
   const elements = Array.from(
     document.querySelectorAll<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >("input, textarea, select")
+    >(
+      "input:not([type='hidden']), textarea, select"
+    )
   );
 
   const fields: DetectedField[] = [];
@@ -310,23 +340,31 @@ function findFields(): DetectedField[] {
   for (const element of elements) {
     if (
       element instanceof HTMLInputElement &&
-      ["hidden", "submit", "button", "reset", "file"].includes(
-        element.type
-      )
+      [
+        "hidden",
+        "submit",
+        "button",
+        "reset",
+        "file",
+        "checkbox",
+        "radio",
+      ].includes(element.type)
     ) {
       continue;
     }
 
     const detected = detectFieldType(element);
 
-    if (detected.type !== "unknown") {
-      fields.push({
-        element,
-        type: detected.type,
-        score: detected.score,
-        identifier: getElementIdentifier(element),
-      });
+    if (detected.type === "unknown") {
+      continue;
     }
+
+    fields.push({
+      element,
+      type: detected.type,
+      score: detected.score,
+      identifier: getElementIdentifier(element),
+    });
   }
 
   return fields;
