@@ -1,251 +1,362 @@
-console.log("JobPilot AI content script loaded.");
-
-type Profile = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  location: string;
-  linkedin: string;
-  github: string;
-  portfolio: string;
+type JobPilotProfile = {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  website?: string;
+  summary?: string;
+  education?: string;
+  experience?: string;
+  skills?: string;
 };
 
 type DetectedField = {
-  element:
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement;
-
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
   type: string;
-  name: string;
-  id: string;
-  placeholder: string;
-  label: string;
+  score: number;
+  identifier: string;
 };
 
-type AIQuestion = {
-  element: HTMLTextAreaElement | HTMLInputElement;
-  question: string;
-};
+console.log("🚀 JobPilot AI content script loaded.");
 
-function normalizeText(value: string): string {
-  return value
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function normalize(text: string): string {
+  return text
     .toLowerCase()
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function getFieldLabel(element: HTMLElement): string {
-  const id = element.getAttribute("id");
+function getElementIdentifier(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+): string {
+  return normalize(
+    [
+      element.name,
+      element.id,
+      element.placeholder,
+      element.getAttribute("aria-label"),
+      element.getAttribute("autocomplete"),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
 
-  if (id) {
+function getLabelText(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+): string {
+  let text = "";
+
+  if (element.id) {
     const label = document.querySelector(
-      `label[for="${CSS.escape(id)}"]`
+      `label[for="${CSS.escape(element.id)}"]`
     );
 
-    if (label?.textContent) {
-      return label.textContent.trim();
+    if (label) {
+      text += ` ${label.textContent || ""}`;
     }
   }
 
   const parentLabel = element.closest("label");
 
-  if (parentLabel?.textContent) {
-    return parentLabel.textContent.trim();
+  if (parentLabel) {
+    text += ` ${parentLabel.textContent || ""}`;
   }
 
-  const ariaLabel = element.getAttribute("aria-label");
+  const parent = element.parentElement;
 
-  if (ariaLabel) {
-    return ariaLabel.trim();
+  if (parent) {
+    text += ` ${parent.textContent || ""}`;
   }
 
-  return "";
+  return normalize(text).slice(0, 500);
 }
 
-function detectFields(): DetectedField[] {
+/* =========================================================
+   FIELD DETECTION
+========================================================= */
+
+function detectFieldType(
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+): {
+  type: string;
+  score: number;
+} {
+  const identifier = getElementIdentifier(element);
+  const label = getLabelText(element);
+
+  const text = `${identifier} ${label}`;
+
+  const type = element instanceof HTMLInputElement
+    ? normalize(element.type)
+    : "";
+
+  /* EMAIL */
+
+  if (
+    type === "email" ||
+    /\bemail\b|\be mail\b/.test(text)
+  ) {
+    return {
+      type: "email",
+      score: 100,
+    };
+  }
+
+  /* PHONE */
+
+  if (
+    type === "tel" ||
+    /\bphone\b|\bmobile\b|\btelephone\b|\bcontact number\b/.test(text)
+  ) {
+    return {
+      type: "phone",
+      score: 100,
+    };
+  }
+
+  /* FIRST NAME */
+
+  if (
+    /\bfirst name\b|\bfirstname\b|\bgiven name\b/.test(text)
+  ) {
+    return {
+      type: "firstName",
+      score: 100,
+    };
+  }
+
+  /* LAST NAME */
+
+  if (
+    /\blast name\b|\blastname\b|\bsurname\b|\bfamily name\b/.test(text)
+  ) {
+    return {
+      type: "lastName",
+      score: 100,
+    };
+  }
+
+  /* FULL NAME */
+
+  if (
+    /\bfull name\b|\bfullname\b|\byour name\b/.test(text)
+  ) {
+    return {
+      type: "fullName",
+      score: 100,
+    };
+  }
+
+  /* LINKEDIN */
+
+  if (
+    /\blinkedin\b/.test(text)
+  ) {
+    return {
+      type: "linkedin",
+      score: 100,
+    };
+  }
+
+  /* GITHUB */
+
+  if (
+    /\bgithub\b/.test(text)
+  ) {
+    return {
+      type: "github",
+      score: 100,
+    };
+  }
+
+  /* PORTFOLIO */
+
+  if (
+    /\bportfolio\b|\bpersonal website\b|\bpersonal site\b/.test(text)
+  ) {
+    return {
+      type: "portfolio",
+      score: 100,
+    };
+  }
+
+  /* WEBSITE */
+
+  if (
+    /\bwebsite\b|\bweb site\b/.test(text)
+  ) {
+    return {
+      type: "website",
+      score: 90,
+    };
+  }
+
+  /* CITY */
+
+  if (
+    /\bcity\b|\btown\b/.test(text)
+  ) {
+    return {
+      type: "city",
+      score: 90,
+    };
+  }
+
+  /* COUNTRY */
+
+  if (
+    /\bcountry\b|\bnationality\b/.test(text)
+  ) {
+    return {
+      type: "country",
+      score: 90,
+    };
+  }
+
+  /* ADDRESS */
+
+  if (
+    /\baddress\b|\bstreet address\b|\bhome address\b/.test(text)
+  ) {
+    return {
+      type: "address",
+      score: 90,
+    };
+  }
+
+  /* EDUCATION */
+
+  if (
+    /\beducation\b|\bdegree\b|\buniversity\b|\bcollege\b/.test(text)
+  ) {
+    return {
+      type: "education",
+      score: 80,
+    };
+  }
+
+  /* EXPERIENCE */
+
+  if (
+    /\bexperience\b|\bwork history\b|\bemployment history\b/.test(text)
+  ) {
+    return {
+      type: "experience",
+      score: 80,
+    };
+  }
+
+  /* SKILLS */
+
+  if (
+    /\bskills\b|\btechnical skills\b|\btechnologies\b/.test(text)
+  ) {
+    return {
+      type: "skills",
+      score: 80,
+    };
+  }
+
+  /* SUMMARY */
+
+  if (
+    /\bsummary\b|\babout you\b|\bprofessional summary\b|\bprofile\b/.test(
+      text
+    )
+  ) {
+    return {
+      type: "summary",
+      score: 70,
+    };
+  }
+
+  return {
+    type: "unknown",
+    score: 0,
+  };
+}
+
+/* =========================================================
+   FIND FORM FIELDS
+========================================================= */
+
+function findFields(): DetectedField[] {
   const elements = Array.from(
     document.querySelectorAll<
-      HTMLInputElement |
-      HTMLTextAreaElement |
-      HTMLSelectElement
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >("input, textarea, select")
   );
 
-  return elements
-    .filter((element) => {
-      const type =
-        element.getAttribute("type")?.toLowerCase();
+  const fields: DetectedField[] = [];
 
-      return (
-        type !== "hidden" &&
-        type !== "submit" &&
-        type !== "button" &&
-        type !== "reset"
-      );
-    })
-    .map((element) => ({
-      element,
+  for (const element of elements) {
+    if (
+      element instanceof HTMLInputElement &&
+      ["hidden", "submit", "button", "reset", "file"].includes(
+        element.type
+      )
+    ) {
+      continue;
+    }
 
-      type:
-        element.getAttribute("type") ||
-        element.tagName.toLowerCase(),
+    const detected = detectFieldType(element);
 
-      name: element.getAttribute("name") || "",
+    if (detected.type !== "unknown") {
+      fields.push({
+        element,
+        type: detected.type,
+        score: detected.score,
+        identifier: getElementIdentifier(element),
+      });
+    }
+  }
 
-      id: element.getAttribute("id") || "",
-
-      placeholder:
-        element.getAttribute("placeholder") || "",
-
-      label: getFieldLabel(element),
-    }));
+  return fields;
 }
 
-function getFieldText(field: DetectedField): string {
-  return normalizeText(
-    [
-      field.label,
-      field.name,
-      field.id,
-      field.placeholder,
-    ].join(" ")
-  );
+/* =========================================================
+   GET PROFILE
+========================================================= */
+
+async function getProfile(): Promise<JobPilotProfile | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(
+      ["jobpilotProfile"],
+      (result) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "JobPilot storage error:",
+            chrome.runtime.lastError
+          );
+
+          resolve(null);
+          return;
+        }
+
+        resolve(
+          (result.jobpilotProfile as JobPilotProfile) || null
+        );
+      }
+    );
+  });
 }
 
-function containsAny(
-  text: string,
-  values: string[]
-): boolean {
-  return values.some((value) =>
-    text.includes(normalizeText(value))
-  );
-}
-
-function findProfileValue(
-  field: DetectedField,
-  profile: Profile
-): string | null {
-  const text = getFieldText(field);
-
-  if (
-    field.type === "email" ||
-    containsAny(text, [
-      "email",
-      "email address",
-      "e-mail",
-      "e mail",
-    ])
-  ) {
-    return profile.email;
-  }
-
-  if (
-    field.type === "tel" ||
-    containsAny(text, [
-      "phone",
-      "phone number",
-      "telephone",
-      "telephone number",
-      "mobile",
-      "mobile number",
-      "mobile phone",
-      "cell phone",
-      "contact number",
-    ])
-  ) {
-    return profile.phone;
-  }
-
-  if (
-    containsAny(text, [
-      "linkedin",
-      "linkedin profile",
-      "linkedin profile url",
-      "linkedin url",
-      "linked in",
-    ])
-  ) {
-    return profile.linkedin;
-  }
-
-  if (
-    containsAny(text, [
-      "github",
-      "github profile",
-      "github profile url",
-      "github url",
-      "git hub",
-    ])
-  ) {
-    return profile.github;
-  }
-
-  if (
-    containsAny(text, [
-      "portfolio",
-      "portfolio url",
-      "personal website",
-      "personal site",
-      "personal website url",
-      "website",
-      "website url",
-    ])
-  ) {
-    return profile.portfolio;
-  }
-
-  if (
-    containsAny(text, [
-      "current city",
-      "city",
-      "location",
-      "country",
-      "address",
-      "home address",
-      "residence",
-    ])
-  ) {
-    return profile.location;
-  }
-
-  if (
-    containsAny(text, [
-      "first name",
-      "firstname",
-      "given name",
-      "givenname",
-      "fname",
-      "forename",
-    ])
-  ) {
-    return profile.firstName;
-  }
-
-  if (
-    containsAny(text, [
-      "last name",
-      "lastname",
-      "family name",
-      "familyname",
-      "surname",
-      "lname",
-    ])
-  ) {
-    return profile.lastName;
-  }
-
-  return null;
-}
-
-/*
-|--------------------------------------------------------------------------
-| SET INPUT VALUE
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   SET VALUE
+========================================================= */
 
 function setElementValue(
   element:
@@ -254,335 +365,201 @@ function setElementValue(
     | HTMLSelectElement,
   value: string
 ): void {
-  const prototype =
-    element instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : element instanceof HTMLSelectElement
-        ? HTMLSelectElement.prototype
+  if (!value) {
+    return;
+  }
+
+  if (element instanceof HTMLSelectElement) {
+    const option = Array.from(element.options).find(
+      (option) =>
+        normalize(option.textContent || "") ===
+          normalize(value) ||
+        normalize(option.value) === normalize(value)
+    );
+
+    if (option) {
+      element.value = option.value;
+    } else {
+      element.value = value;
+    }
+  } else {
+    const prototype =
+      element instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
         : HTMLInputElement.prototype;
 
-  const valueSetter =
-    Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       prototype,
       "value"
-    )?.set;
+    );
 
-  if (valueSetter) {
-    valueSetter.call(element, value);
-  } else {
-    element.value = value;
+    if (descriptor?.set) {
+      descriptor.set.call(element, value);
+    } else {
+      element.value = value;
+    }
   }
+
+  /*
+   * React / Vue / Angular need these events
+   * to recognize that the value changed.
+   */
 
   element.dispatchEvent(
     new Event("input", {
       bubbles: true,
+      composed: true,
     })
   );
 
   element.dispatchEvent(
     new Event("change", {
       bubbles: true,
+      composed: true,
+    })
+  );
+
+  element.dispatchEvent(
+    new Event("blur", {
+      bubbles: true,
     })
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| AI QUESTION DETECTION
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   PROFILE VALUE
+========================================================= */
 
-function detectAIQuestions(): AIQuestion[] {
-  const elements = Array.from(
-    document.querySelectorAll<
-      HTMLTextAreaElement | HTMLInputElement
-    >("textarea, input")
-  );
+function getProfileValue(
+  profile: JobPilotProfile,
+  type: string
+): string {
+  switch (type) {
+    case "firstName":
+      return profile.firstName || "";
 
-  const questions: AIQuestion[] = [];
+    case "lastName":
+      return profile.lastName || "";
 
-  elements.forEach((element) => {
-    const label = getFieldLabel(element);
-
-    const placeholder =
-      element.getAttribute("placeholder") || "";
-
-    const name =
-      element.getAttribute("name") || "";
-
-    const id =
-      element.getAttribute("id") || "";
-
-    const questionText = normalizeText(
-      [
-        label,
-        placeholder,
-        name,
-        id,
-      ].join(" ")
-    );
-
-    const AI_KEYWORDS = [
-      "why do you",
-      "why are you",
-      "why would you",
-      "tell us about yourself",
-      "tell us about your experience",
-      "describe your experience",
-      "describe yourself",
-      "cover letter",
-      "motivation",
-      "motivation letter",
-      "additional information",
-      "anything else",
-      "why should we hire you",
-      "why do you want",
-      "what interests you",
-      "what attracted you",
-      "career goals",
-      "professional goals",
-      "relevant experience",
-      "work experience",
-    ];
-
-    const looksLikeAIQuestion =
-      containsAny(
-        questionText,
-        AI_KEYWORDS
+    case "fullName":
+      return (
+        profile.fullName ||
+        `${profile.firstName || ""} ${
+          profile.lastName || ""
+        }`.trim()
       );
 
-    const isLongText =
-      element instanceof HTMLTextAreaElement;
+    case "email":
+      return profile.email || "";
 
-    if (
-      isLongText ||
-      looksLikeAIQuestion
-    ) {
-      questions.push({
-        element,
-        question:
-          label ||
-          placeholder ||
-          name ||
-          id ||
-          "Application question",
-      });
-    }
-  });
+    case "phone":
+      return profile.phone || "";
 
-  return questions;
-}
+    case "city":
+      return profile.city || "";
 
-/*
-|--------------------------------------------------------------------------
-| JOB DESCRIPTION
-|--------------------------------------------------------------------------
-*/
+    case "country":
+      return profile.country || "";
 
-function extractJobDescription(): string {
-  const selectors = [
-    "[class*='job-description']",
-    "[class*='jobDescription']",
-    "[id*='job-description']",
-    "[id*='jobDescription']",
-    "[class*='description']",
-    "article",
-    "main",
-  ];
+    case "address":
+      return profile.address || "";
 
-  for (const selector of selectors) {
-    const element =
-      document.querySelector(selector);
+    case "linkedin":
+      return profile.linkedin || "";
 
-    if (
-      element &&
-      element.textContent &&
-      element.textContent.trim().length > 100
-    ) {
-      return element.textContent
-        .trim()
-        .slice(0, 10000);
-    }
+    case "github":
+      return profile.github || "";
+
+    case "portfolio":
+      return (
+        profile.portfolio ||
+        profile.website ||
+        ""
+      );
+
+    case "website":
+      return (
+        profile.website ||
+        profile.portfolio ||
+        ""
+      );
+
+    case "summary":
+      return profile.summary || "";
+
+    case "education":
+      return profile.education || "";
+
+    case "experience":
+      return profile.experience || "";
+
+    case "skills":
+      return profile.skills || "";
+
+    default:
+      return "";
   }
-
-  return document.body.innerText
-    .trim()
-    .slice(0, 10000);
 }
 
-/*
-|--------------------------------------------------------------------------
-| GENERATE AI ANSWER
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   AUTOFILL
+========================================================= */
 
-async function generateAIAnswer(
-  question: string,
-  jobDescription: string,
-  profile: Profile
-): Promise<string | null> {
-  try {
-    console.log(
-      "🤖 Sending question to JobPilot AI server..."
-    );
+async function autofillApplication(): Promise<{
+  success: boolean;
+  filled: number;
+  message: string;
+}> {
+  console.log("🤖 JobPilot AI: Starting autofill...");
 
-    const response = await fetch(
-      "https://job-pilot-ai-silk.vercel.app/api/generate-answer",
-      {
-        method: "POST",
+  const profile = await getProfile();
 
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          question,
-          jobDescription,
-          profile,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error(
-        "JobPilot AI server returned:",
-        response.status
-      );
-
-      return null;
-    }
-
-    const data = await response.json();
-
-    if (!data.answer) {
-      console.error(
-        "No answer returned from server."
-      );
-
-      return null;
-    }
-
-    return data.answer;
-  } catch (error) {
+  if (!profile) {
     console.error(
-      "Failed to connect to JobPilot AI server:",
-      error
+      "JobPilot AI: No profile found in chrome.storage.local."
     );
 
-    return null;
+    return {
+      success: false,
+      filled: 0,
+      message:
+        "No JobPilot profile found. Please save your profile first.",
+    };
   }
-}
-
-/*
-|--------------------------------------------------------------------------
-| GENERATE ANSWERS FOR ALL AI QUESTIONS
-|--------------------------------------------------------------------------
-*/
-
-async function fillAIQuestions(
-  profile: Profile
-): Promise<void> {
-  const questions =
-    detectAIQuestions();
-
-  if (questions.length === 0) {
-    console.log(
-      "No AI questions detected."
-    );
-
-    return;
-  }
-
-  const jobDescription =
-    extractJobDescription();
 
   console.log(
-    `🤖 Generating ${questions.length} AI answers...`
+    "JobPilot AI: Profile loaded:",
+    profile
   );
 
-  for (
-    let i = 0;
-    i < questions.length;
-    i++
-  ) {
-    const question =
-      questions[i];
+  const fields = findFields();
 
-    console.log(
-      `🤖 Generating answer ${i + 1}/${questions.length}:`,
-      question.question
+  console.log(
+    `JobPilot AI: Found ${fields.length} recognized fields.`
+  );
+
+  let filled = 0;
+
+  for (const field of fields) {
+    const value = getProfileValue(
+      profile,
+      field.type
     );
 
-    const answer =
-      await generateAIAnswer(
-        question.question,
-        jobDescription,
-        profile
-      );
-
-    if (!answer) {
-      console.error(
-        `Failed to generate answer for question ${i + 1}.`
-      );
-
+    if (!value) {
       continue;
     }
 
-    setElementValue(
-      question.element,
-      answer
-    );
+    /*
+     * Don't overwrite fields that already contain
+     * the same value.
+     */
 
-    console.log(
-      `✅ AI answer inserted into: ${question.question}`
-    );
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| MAIN AUTOFILL
-|--------------------------------------------------------------------------
-*/
-
-async function autofillApplication(): Promise<void> {
-  const result =
-    await chrome.storage.local.get(
-      "jobpilotProfile"
-    );
-
-  const profile =
-    result.jobpilotProfile as
-      | Profile
-      | undefined;
-
-  if (!profile) {
-    console.log(
-      "JobPilot AI: No profile found."
-    );
-
-    return;
-  }
-
-  /*
-   * Fill normal fields.
-   */
-
-  const fields =
-    detectFields();
-
-  let filledCount = 0;
-
-  fields.forEach((field) => {
-    const value =
-      findProfileValue(
-        field,
-        profile
-      );
-
-    if (!value) {
-      return;
+    if (
+      "value" in field.element &&
+      field.element.value === value
+    ) {
+      continue;
     }
 
     setElementValue(
@@ -590,84 +567,224 @@ async function autofillApplication(): Promise<void> {
       value
     );
 
-    filledCount++;
+    filled++;
 
     console.log(
-      `JobPilot AI filled: ${
-        field.label ||
-        field.name ||
-        field.id
-      } → ${value}`
+      `✅ Filled ${field.type}:`,
+      value
     );
-  });
+  }
 
   console.log(
-    `JobPilot AI filled ${filledCount} normal fields.`
+    `🎉 JobPilot AI: Filled ${filled} fields.`
   );
 
-  /*
-   * Now generate AI answers.
-   */
-
-  await fillAIQuestions(
-    profile
-  );
-
-  console.log(
-    "🎉 JobPilot AI autofill complete."
-  );
+  return {
+    success: true,
+    filled,
+    message:
+      filled > 0
+        ? `Filled ${filled} application fields.`
+        : "No matching fields were found.",
+  };
 }
 
-/*
-|--------------------------------------------------------------------------
-| MESSAGES FROM POPUP
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   AI QUESTIONS
+========================================================= */
 
-chrome.runtime.onMessage.addListener(
-  (message) => {
-    if (message.action === "ping") {
-      console.log(
-        "JobPilot AI ping received."
+function detectAIQuestions(): Array<{
+  element: HTMLTextAreaElement | HTMLInputElement;
+  question: string;
+}> {
+  const elements = Array.from(
+    document.querySelectorAll<
+      HTMLTextAreaElement | HTMLInputElement
+    >("textarea, input")
+  );
+
+  const results: Array<{
+    element: HTMLTextAreaElement | HTMLInputElement;
+    question: string;
+  }> = [];
+
+  for (const element of elements) {
+    if (
+      element instanceof HTMLInputElement &&
+      ["hidden", "submit", "button", "file"].includes(
+        element.type
+      )
+    ) {
+      continue;
+    }
+
+    const label = getLabelText(element);
+
+    if (!label) {
+      continue;
+    }
+
+    const isQuestion =
+      label.includes("?") ||
+      /\bwhy\b|\bdescribe\b|\bexplain\b|\btell us\b|\bwhat\b|\bhow\b/.test(
+        label
       );
 
-      return;
+    if (isQuestion) {
+      results.push({
+        element,
+        question: label,
+      });
+    }
+  }
+
+  return results;
+}
+
+/* =========================================================
+   JOB DESCRIPTION
+========================================================= */
+
+function extractJobDescription(): string {
+  const selectors = [
+    '[class*="job-description"]',
+    '[class*="jobDescription"]',
+    '[class*="description"]',
+    '[id*="job-description"]',
+    '[id*="jobDescription"]',
+    "article",
+    "main",
+  ];
+
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+
+    if (element?.textContent) {
+      const text = element.textContent.trim();
+
+      if (text.length > 200) {
+        return text.slice(0, 10000);
+      }
+    }
+  }
+
+  return document.body.innerText.slice(0, 10000);
+}
+
+/* =========================================================
+   MESSAGE HANDLER
+========================================================= */
+
+chrome.runtime.onMessage.addListener(
+  (
+    message,
+    _sender,
+    sendResponse
+  ) => {
+    console.log(
+      "📩 JobPilot message received:",
+      message
+    );
+
+    if (message.action === "ping") {
+      sendResponse({
+        success: true,
+        message:
+          "JobPilot AI content script is active.",
+      });
+
+      return true;
     }
 
     if (message.action === "autofill") {
-      void autofillApplication();
+      autofillApplication()
+        .then((result) => {
+          sendResponse(result);
+        })
+        .catch((error) => {
+          console.error(
+            "❌ Autofill error:",
+            error
+          );
+
+          sendResponse({
+            success: false,
+            filled: 0,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Autofill failed.",
+          });
+        });
+
+      return true;
     }
 
     if (message.action === "analyze") {
-      console.log(
-        "Job description:",
-        extractJobDescription()
-      );
+      const fields = findFields();
+      const questions = detectAIQuestions();
+      const jobDescription =
+        extractJobDescription();
 
-      console.log(
-        "AI questions:",
-        detectAIQuestions()
-      );
+      sendResponse({
+        success: true,
+        fields: fields.length,
+        questions: questions.length,
+        jobDescription,
+      });
+
+      return true;
     }
+
+    return false;
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| INITIAL ANALYSIS
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   DYNAMIC PAGE OBSERVER
+========================================================= */
 
-console.log(
-  "🤖 JobPilot AI PAGE ANALYSIS"
-);
+let scanTimeout: number | undefined;
 
-console.log(
-  "Normal fields:",
-  detectFields().length
-);
+const observer = new MutationObserver(() => {
+  if (scanTimeout) {
+    window.clearTimeout(scanTimeout);
+  }
 
-console.log(
-  "AI questions:",
-  detectAIQuestions().length
-);
+  scanTimeout = window.setTimeout(() => {
+    const fields = findFields();
+
+    console.log(
+      `🔄 JobPilot AI: Page changed. ${fields.length} fields detected.`
+    );
+  }, 500);
+});
+
+if (document.body) {
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+/* =========================================================
+   INITIAL ANALYSIS
+========================================================= */
+
+setTimeout(() => {
+  const fields = findFields();
+  const questions = detectAIQuestions();
+
+  console.log("=================================");
+  console.log("🤖 JOBPILOT AI PAGE ANALYSIS");
+  console.log("=================================");
+  console.log(
+    "Recognized fields:",
+    fields.length
+  );
+  console.log(
+    "AI questions:",
+    questions.length
+  );
+  console.log("=================================");
+}, 1000);
