@@ -39,7 +39,8 @@ const emptyProfile: Profile = {
 };
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] =
+    useState<User | null>(null);
 
   const [authLoading, setAuthLoading] =
     useState(true);
@@ -47,7 +48,8 @@ function App() {
   const [isRegistering, setIsRegistering] =
     useState(false);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] =
+    useState("");
 
   const [password, setPassword] =
     useState("");
@@ -59,7 +61,9 @@ function App() {
     useState("");
 
   /*
-   * Watch Firebase authentication state.
+   * --------------------------------------------------
+   * Firebase authentication listener
+   * --------------------------------------------------
    */
 
   useEffect(() => {
@@ -67,101 +71,104 @@ function App() {
       async (firebaseUser) => {
         setUser(firebaseUser);
 
-        if (firebaseUser) {
-          try {
-            const firebaseProfile =
-              await getProfile(
-                firebaseUser.uid
-              );
+        if (!firebaseUser) {
+          setProfile(emptyProfile);
+          setAuthLoading(false);
+          return;
+        }
 
-            if (firebaseProfile) {
-              const loadedProfile: Profile = {
-                firstName:
-                  firebaseProfile.firstName ||
-                  "",
-                lastName:
-                  firebaseProfile.lastName ||
-                  "",
-                email:
-                  firebaseProfile.email ||
-                  firebaseUser.email ||
-                  "",
-                phone:
-                  firebaseProfile.phone ||
-                  "",
-                location:
-                  firebaseProfile.city ||
-                  "",
-                linkedin:
-                  firebaseProfile.linkedin ||
-                  "",
-                github:
-                  firebaseProfile.github ||
-                  "",
-                portfolio:
-                  firebaseProfile.portfolio ||
-                  "",
-              };
+        try {
+          /*
+           * Load user's profile from Firestore.
+           */
 
-              setProfile(
-                loadedProfile
-              );
-
-              /*
-               * Keep a local copy for the
-               * Chrome extension.
-               */
-
-              await chrome.storage.local.set({
-                jobpilotProfile:
-                  loadedProfile,
-              });
-            } else {
-              /*
-               * New Firebase account.
-               * Start with the user's email.
-               */
-
-              const newProfile: Profile = {
-                ...emptyProfile,
-                email:
-                  firebaseUser.email || "",
-              };
-
-              setProfile(newProfile);
-
-              await chrome.storage.local.set({
-                jobpilotProfile:
-                  newProfile,
-              });
-            }
-          } catch (error) {
-            console.error(
-              "Failed to load Firebase profile:",
-              error
+          const firebaseProfile =
+            await getProfile(
+              firebaseUser.uid
             );
 
-            setMessage(
-              "Could not load your profile."
+          if (firebaseProfile) {
+            const loadedProfile: Profile = {
+              firstName:
+                firebaseProfile.firstName || "",
+
+              lastName:
+                firebaseProfile.lastName || "",
+
+              email:
+                firebaseProfile.email ||
+                firebaseUser.email ||
+                "",
+
+              phone:
+                firebaseProfile.phone || "",
+
+              location:
+                firebaseProfile.city || "",
+
+              linkedin:
+                firebaseProfile.linkedin || "",
+
+              github:
+                firebaseProfile.github || "",
+
+              portfolio:
+                firebaseProfile.portfolio || "",
+            };
+
+            setProfile(
+              loadedProfile
             );
+          } else {
+            /*
+             * User exists in Authentication
+             * but doesn't have a Firestore profile yet.
+             */
+
+            setProfile({
+              ...emptyProfile,
+              email:
+                firebaseUser.email || "",
+            });
           }
+        } catch (error) {
+          console.error(
+            "Failed to load Firebase profile:",
+            error
+          );
+
+          setMessage(
+            "Could not load your profile."
+          );
         }
 
         setAuthLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   /*
-   * Login.
+   * --------------------------------------------------
+   * Login
+   * --------------------------------------------------
    */
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!email.trim()) {
       setMessage(
-        "Please enter your email and password."
+        "Please enter your email."
+      );
+
+      return;
+    }
+
+    if (!password) {
+      setMessage(
+        "Please enter your password."
       );
 
       return;
@@ -171,7 +178,7 @@ function App() {
       setMessage("Signing in...");
 
       await loginUser(
-        email,
+        email.trim(),
         password
       );
 
@@ -191,13 +198,23 @@ function App() {
   };
 
   /*
-   * Register.
+   * --------------------------------------------------
+   * Register
+   * --------------------------------------------------
    */
 
   const handleRegister = async () => {
-    if (!email || !password) {
+    if (!email.trim()) {
       setMessage(
-        "Please enter your email and password."
+        "Please enter your email."
+      );
+
+      return;
+    }
+
+    if (!password) {
+      setMessage(
+        "Please enter a password."
       );
 
       return;
@@ -217,7 +234,7 @@ function App() {
       );
 
       await registerUser(
-        email,
+        email.trim(),
         password
       );
 
@@ -237,7 +254,9 @@ function App() {
   };
 
   /*
-   * Logout.
+   * --------------------------------------------------
+   * Logout
+   * --------------------------------------------------
    */
 
   const handleLogout = async () => {
@@ -264,7 +283,9 @@ function App() {
   };
 
   /*
-   * Save profile to Firebase + local extension storage.
+   * --------------------------------------------------
+   * Save profile to Firestore
+   * --------------------------------------------------
    */
 
   const handleSaveProfile = async () => {
@@ -283,52 +304,45 @@ function App() {
 
       const firebaseProfile: JobPilotProfile = {
         firstName:
-          profile.firstName,
+          profile.firstName.trim(),
 
         lastName:
-          profile.lastName,
+          profile.lastName.trim(),
 
         fullName:
-          `${profile.firstName} ${profile.lastName}`.trim(),
+          `${profile.firstName} ${profile.lastName}`
+            .trim(),
 
         email:
-          profile.email,
+          profile.email.trim(),
 
         phone:
-          profile.phone,
+          profile.phone.trim(),
 
         city:
-          profile.location,
+          profile.location.trim(),
 
         linkedin:
-          profile.linkedin,
+          profile.linkedin.trim(),
 
         github:
-          profile.github,
+          profile.github.trim(),
 
         portfolio:
-          profile.portfolio,
+          profile.portfolio.trim(),
       };
 
       /*
-       * Save to Firestore.
+       * Save ONLY to Firebase.
+       *
+       * chrome.storage.local is intentionally
+       * NOT used here because this is the web app.
        */
 
       await saveProfile(
         user.uid,
         firebaseProfile
       );
-
-      /*
-       * Also save locally so the
-       * existing extension continues
-       * working.
-       */
-
-      await chrome.storage.local.set({
-        jobpilotProfile:
-          profile,
-      });
 
       setMessage(
         "Profile saved successfully."
@@ -340,146 +354,15 @@ function App() {
       );
 
       setMessage(
-        "Could not save your profile."
+        getFirestoreErrorMessage(error)
       );
     }
   };
 
   /*
-   * Get active browser tab.
-   */
-
-  const getActiveTab =
-    async (): Promise<chrome.tabs.Tab> => {
-      const tabs =
-        await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-
-      if (!tabs[0]?.id) {
-        throw new Error(
-          "No active tab found."
-        );
-      }
-
-      return tabs[0];
-    };
-
-  /*
-   * Make sure content.js is available.
-   */
-
-  const ensureContentScript =
-    async (
-      tabId: number
-    ): Promise<void> => {
-      try {
-        await chrome.tabs.sendMessage(
-          tabId,
-          {
-            action: "ping",
-          }
-        );
-
-        console.log(
-          "JobPilot AI content script is already running."
-        );
-      } catch {
-        console.log(
-          "Content script not found. Injecting..."
-        );
-
-        await chrome.scripting.executeScript({
-          target: {
-            tabId,
-          },
-
-          files: [
-            "content.js",
-          ],
-        });
-
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              100
-            )
-        );
-      }
-    };
-
-  /*
-   * Autofill application.
-   */
-
-  const autofill =
-    async () => {
-      if (!user) {
-        setMessage(
-          "Please sign in first."
-        );
-
-        return;
-      }
-
-      try {
-        /*
-         * Make sure the latest profile
-         * is available locally.
-         */
-
-        await chrome.storage.local.set({
-          jobpilotProfile:
-            profile,
-        });
-
-        setMessage(
-          "Connecting to the application..."
-        );
-
-        const tab =
-          await getActiveTab();
-
-        const tabId =
-          tab.id;
-
-        if (!tabId) {
-          throw new Error(
-            "Active tab has no ID."
-          );
-        }
-
-        await ensureContentScript(
-          tabId
-        );
-
-        await chrome.tabs.sendMessage(
-          tabId,
-          {
-            action:
-              "autofill",
-          }
-        );
-
-        setMessage(
-          "JobPilot AI is filling the application..."
-        );
-      } catch (error) {
-        console.error(
-          "JobPilot AI autofill error:",
-          error
-        );
-
-        setMessage(
-          "Could not connect to this page."
-        );
-      }
-    };
-
-  /*
-   * Loading screen.
+   * --------------------------------------------------
+   * Loading screen
+   * --------------------------------------------------
    */
 
   if (authLoading) {
@@ -488,6 +371,10 @@ function App() {
         <h1>JobPilot AI</h1>
 
         <p className="subtitle">
+          Your AI job application assistant
+        </p>
+
+        <p className="message">
           Loading...
         </p>
       </div>
@@ -495,7 +382,9 @@ function App() {
   }
 
   /*
-   * LOGIN / REGISTER SCREEN
+   * --------------------------------------------------
+   * Login / Register
+   * --------------------------------------------------
    */
 
   if (!user) {
@@ -512,22 +401,26 @@ function App() {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e) =>
+            onChange={(e) => {
               setEmail(
                 e.target.value
-              )
-            }
+              );
+
+              setMessage("");
+            }}
           />
 
           <input
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e) =>
+            onChange={(e) => {
               setPassword(
                 e.target.value
-              )
-            }
+              );
+
+              setMessage("");
+            }}
           />
         </div>
 
@@ -546,11 +439,13 @@ function App() {
 
         <button
           className="autofill-button"
-          onClick={() =>
+          onClick={() => {
             setIsRegistering(
               !isRegistering
-            )
-          }
+            );
+
+            setMessage("");
+          }}
         >
           {isRegistering
             ? "Already have an account? Login"
@@ -567,7 +462,9 @@ function App() {
   }
 
   /*
-   * LOGGED-IN PROFILE SCREEN
+   * --------------------------------------------------
+   * Logged-in profile
+   * --------------------------------------------------
    */
 
   return (
@@ -578,13 +475,15 @@ function App() {
         Your AI job application assistant
       </p>
 
-      <p>
-        Signed in as:
-        <br />
+      <div className="user-info">
+        <p>
+          Signed in as:
+        </p>
+
         <strong>
           {user.email}
         </strong>
-      </p>
+      </div>
 
       <div className="form">
         <input
@@ -616,6 +515,7 @@ function App() {
         />
 
         <input
+          type="email"
           placeholder="Email"
           value={
             profile.email
@@ -630,6 +530,7 @@ function App() {
         />
 
         <input
+          type="tel"
           placeholder="Phone"
           value={
             profile.phone
@@ -658,6 +559,7 @@ function App() {
         />
 
         <input
+          type="url"
           placeholder="LinkedIn URL"
           value={
             profile.linkedin
@@ -672,6 +574,7 @@ function App() {
         />
 
         <input
+          type="url"
           placeholder="GitHub URL"
           value={
             profile.github
@@ -686,6 +589,7 @@ function App() {
         />
 
         <input
+          type="url"
           placeholder="Portfolio URL"
           value={
             profile.portfolio
@@ -712,15 +616,6 @@ function App() {
       <button
         className="autofill-button"
         onClick={
-          autofill
-        }
-      >
-        ✨ Autofill Application
-      </button>
-
-      <button
-        className="autofill-button"
-        onClick={
           handleLogout
         }
       >
@@ -737,56 +632,134 @@ function App() {
 }
 
 /*
- * Convert Firebase errors into
- * user-friendly messages.
+ * --------------------------------------------------
+ * Firebase authentication errors
+ * --------------------------------------------------
  */
 
 function getAuthErrorMessage(
   error: unknown
 ): string {
   if (
-    typeof error ===
-      "object" &&
+    typeof error === "object" &&
     error !== null &&
     "code" in error
   ) {
-    const code =
-      String(
-        (
-          error as {
-            code: string;
-          }
-        ).code
-      );
+    const code = String(
+      (
+        error as {
+          code: string;
+        }
+      ).code
+    );
 
     switch (code) {
       case "auth/invalid-credential":
-        return "Incorrect email or password.";
+        return (
+          "Incorrect email or password."
+        );
 
       case "auth/email-already-in-use":
-        return "An account with this email already exists.";
+        return (
+          "An account with this email already exists."
+        );
 
       case "auth/invalid-email":
-        return "Please enter a valid email address.";
+        return (
+          "Please enter a valid email address."
+        );
 
       case "auth/weak-password":
-        return "Password is too weak.";
+        return (
+          "Password is too weak."
+        );
 
       case "auth/user-not-found":
-        return "No account exists with this email.";
+        return (
+          "No account exists with this email."
+        );
 
       case "auth/wrong-password":
-        return "Incorrect password.";
+        return (
+          "Incorrect password."
+        );
 
       case "auth/too-many-requests":
-        return "Too many attempts. Please try again later.";
+        return (
+          "Too many attempts. Please try again later."
+        );
+
+      case "auth/network-request-failed":
+        return (
+          "Network error. Please check your connection."
+        );
 
       default:
-        return `Authentication error: ${code}`;
+        return (
+          `Authentication error: ${code}`
+        );
     }
   }
 
   return "Authentication failed.";
+}
+
+/*
+ * --------------------------------------------------
+ * Firestore errors
+ * --------------------------------------------------
+ */
+
+function getFirestoreErrorMessage(
+  error: unknown
+): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error
+  ) {
+    const code = String(
+      (
+        error as {
+          code: string;
+        }
+      ).code
+    );
+
+    switch (code) {
+      case "permission-denied":
+        return (
+          "Permission denied. Check your Firestore security rules."
+        );
+
+      case "unauthenticated":
+        return (
+          "Your session expired. Please log in again."
+        );
+
+      case "not-found":
+        return (
+          "Firestore database was not found."
+        );
+
+      case "failed-precondition":
+        return (
+          "Firestore is not configured correctly."
+        );
+
+      case "unavailable":
+        return (
+          "Firebase is temporarily unavailable. Try again."
+        );
+
+      default:
+        return (
+          `Firestore error: ${code}`
+        );
+    }
+  }
+
+  return "Could not save your profile.";
 }
 
 export default App;
